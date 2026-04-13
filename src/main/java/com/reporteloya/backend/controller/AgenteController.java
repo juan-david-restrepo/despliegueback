@@ -10,8 +10,8 @@ import com.reporteloya.backend.entity.Notification;
 import com.reporteloya.backend.repository.TareaRepository;
 import com.reporteloya.backend.repository.NotificationRepository;
 import com.reporteloya.backend.service.AgenteService;
+import com.reporteloya.backend.service.FileStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,19 +20,14 @@ import org.springframework.security.core.Authentication;
 import java.util.Map;
 import java.util.List;
 import java.util.Base64;
-import java.io.File;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/agente")
 @CrossOrigin(origins = {"https://frontend-eight-beta-69.vercel.app"})
 public class AgenteController {
 
-    @Value("${app.upload.dir}")
-    private String uploadDir;
-
-    @Value("${app.base-url}")
-    private String baseUrl;
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @Autowired
     private TareaRepository tareaRepository;
@@ -246,11 +241,11 @@ public class AgenteController {
 
         var agente = agenteOpt.get();
         try {
-            String extension = ".png";
+            String contentType = "image/png";
             if (fotoBase64.contains("image/jpeg")) {
-                extension = ".jpg";
+                contentType = "image/jpeg";
             } else if (fotoBase64.contains("image/webp")) {
-                extension = ".webp";
+                contentType = "image/webp";
             }
 
             String base64Data = fotoBase64.contains(",") 
@@ -259,18 +254,8 @@ public class AgenteController {
 
             byte[] imageBytes = Base64.getDecoder().decode(base64Data);
 
-            String fileName = "perfil_" + agente.getId() + "_" + UUID.randomUUID() + extension;
-            
-            String uploadPath = uploadDir + "/perfiles/";
-            File dir = new File(uploadPath);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            File file = new File(uploadPath + fileName);
-            java.nio.file.Files.write(file.toPath(), imageBytes);
-
-            agente.setFoto(baseUrl + "/uploads/perfiles/" + fileName);
+            String fotoUrl = fileStorageService.guardarFotoPerfil(imageBytes, contentType, agente.getId());
+            agente.setFoto(fotoUrl);
 
             agenteService.guardar(agente);
 
